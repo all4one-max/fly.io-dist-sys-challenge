@@ -14,6 +14,14 @@ type NetworkMessages struct {
 	messageMap map[string]int
 }
 
+type BroadcastMethod int
+
+const (
+    DIRECT_BROADCAST_METHOD BroadcastMethod = iota
+    RING_BROADCAST_METHOD
+)
+
+
 func (network_messages *NetworkMessages) AddMessage(msgID string, msgVal int) {
 	if _, exists := network_messages.messageMap[msgID]; !exists {
 		network_messages.messages = append(network_messages.messages, msgVal)
@@ -27,7 +35,7 @@ func (network_messages *NetworkMessages) ReadMessage() []int {
 	return network_messages.messages
 }
 
-func handleClientMessage(n *maelstrom.Node ,network_messages *NetworkMessages, body map[string]any, allNodes []string, currentNodeID string) {
+func handleClientMessage(n *maelstrom.Node ,network_messages *NetworkMessages, body map[string]any, allNodes []string, currentNodeID string, broadcast_method BroadcastMethod) {
 	// Create a new body from the existing body and add the parent field
 	newBody := make(map[string]any)
 	for k, v := range body {
@@ -47,15 +55,20 @@ func handleClientMessage(n *maelstrom.Node ,network_messages *NetworkMessages, b
 	}
 	
 	
-
-
-	for _, node := range allNodes {
-		if node != currentNodeID {
-			fmt.Fprintf(os.Stderr, "sending message to node %v from node %v\n", node, currentNodeID)
-			if err := n.Send(node, newBody); err != nil {
-				fmt.Fprintf(os.Stderr, "Error sending message to node %v: %v\n", node, err)
+	switch broadcast_method {
+		case DIRECT_BROADCAST_METHOD:
+			fmt.Fprintf(os.Stderr, "using direct broadcast method\n")
+			// direct broadcast to all nodes
+			for _, node := range allNodes {
+				if node != currentNodeID {
+					fmt.Fprintf(os.Stderr, "sending message to node %v from node %v\n", node, currentNodeID)
+					if err := n.Send(node, newBody); err != nil {
+						fmt.Fprintf(os.Stderr, "Error sending message to node %v: %v\n", node, err)
+					}
+				}
 			}
-		}
+		case RING_BROADCAST_METHOD:
+			fmt.Fprintf(os.Stderr, "Ring broadcast method not implemented\n")
 	}
 }
 
@@ -95,6 +108,7 @@ func RegisterMultiNodeBroadcastHandler(n *maelstrom.Node) {
 	})
 
 	n.Handle("broadcast", func(msg maelstrom.Message) error {
+		broadcast_method := DIRECT_BROADCAST_METHOD
 		fmt.Fprintf(os.Stderr, "the network message %v\n", network_messages)	
 		var body map[string]any
 		if err := json.Unmarshal(msg.Body, &body); err != nil {
@@ -106,7 +120,7 @@ func RegisterMultiNodeBroadcastHandler(n *maelstrom.Node) {
 		if isClientMsg, ok := body["is_client_msg"].(bool); ok && !isClientMsg {
 			handleBroadcastMessage(msg.Src, currentNodeID, body, &network_messages)
 		} else {
-			handleClientMessage(n, &network_messages, body, allNodes, currentNodeID)
+			handleClientMessage(n, &network_messages, body, allNodes, currentNodeID, broadcast_method)
 		}
 			
 
