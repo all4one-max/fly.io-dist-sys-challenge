@@ -140,7 +140,7 @@ func startNodeSyncing(n *maelstrom.Node, network_messages *NetworkMessages, allN
 				fmt.Fprintf(os.Stderr, "Error sending sync request to node %v: from node %v error %v\n", nextNode, currentNodeID, err)
 			}
 			// Sleep for 500 milliseconds before syncing again
-			time.Sleep(1000 * time.Millisecond)
+			time.Sleep(500 * time.Millisecond)
 		}
 	}()
 }
